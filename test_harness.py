@@ -9,6 +9,7 @@ from threading import Thread
 NUM_ARGS= 2
 MAX_PKT_BYTES= 1024
 RESP_ERR= "ERROR\n"
+MAX_TEST_DISPLAY_CHARS= 64
 
 
 #----------------------- Testing Suite ---------------------------
@@ -28,16 +29,20 @@ class Client(Thread):
         self.returnObj= returnObj
     
     def run(self):
-        cliSock= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        cliSock.connect((self.ip, self.port))
-        cliSock.send(self.msg)
-        status= cliSock.recv(MAX_PKT_BYTES)
+        try:
+            cliSock= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            cliSock.connect((self.ip, self.port))
+            cliSock.send(self.msg)
+            status= cliSock.recv(MAX_PKT_BYTES)
+            self.returnObj.passed= status == self.expected
+        except:
+            pass
         try:
             cliSock.shutdown(socket.SHUT_RDWR)
             cliSock.close()
         except:
             pass
-        self.returnObj.passed= status == self.expected
+
 
 
 #---------------------- Script Functions -------------------------
@@ -59,10 +64,7 @@ def testBadCmds():
     print "Testing bad commands..."
     failTests= [
         "x",
-        "no pipelines"
-    ]
-    """
-
+        "no pipelines",
         "onepipe|",
         "INDEX|",
         "INDEX|package",
@@ -74,10 +76,9 @@ def testBadCmds():
         "INDEX|package|dep1|dep2\n",
         "|package|deps\n",
         "|package|\n",
-        "||\n"
+        "||\n",
         "INDEX|package|derp" + ",derp"*1000 + "\n"
     ]
-    """
     results= runTests(failTests)
     return results
 
@@ -97,6 +98,9 @@ def runTests(tests):
         if result.passed:
             didPass= "PASS"
             numPasses+= 1
+        result.testStr= result.testStr.strip()
+        if len(result.testStr) > MAX_TEST_DISPLAY_CHARS:
+            result.testStr= result.testStr[:MAX_TEST_DISPLAY_CHARS] + " ..."
         print "    %s: \"%s\"" % (didPass, result.testStr)
     print "Passed %d/%d tests" % (numPasses, len(tests))
     return (numPasses, len(tests))

@@ -128,13 +128,19 @@ class IndexThread(Thread):
         if not re.match(".*\n", s):
             return None
         s= s.rstrip()
-        if s.count("|") < 2:
+        if s.count("|") != 2:
             return None
         (cmd, pkg, deps)= s.split("|")
+        #Parse command portion
         cmdHandlerPtr= self.indexPtr.getHandlerPtr(cmd)
         if cmdHandlerPtr == None:
             return None
+        #Parse package portion
+        if len(pkg) == 0:
+            return None
+        #Parse dependency portion (optional)
         deps= deps.split(",")
+        #Completed command
         return IndexCommand(cmdHandlerPtr, pkg, deps)
         
 
