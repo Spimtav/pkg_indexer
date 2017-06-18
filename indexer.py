@@ -12,9 +12,9 @@ from threading import Lock, Thread
 #-------------------------- Constants -----------------------------
 PORT_LISTEN= 8080
 MAX_QUEUED_CONNECTIONS= 5
-MAX_SOCK_TIMEOUT_SECS= 4.0# 60.0
+MAX_SOCK_TIMEOUT_SECS= 4.0#60.0
 MAX_PKT_BYTES= 1024
-MAX_SESSION_SECS= 120.0
+MAX_SESSION_SECS= 20.0#120.0
 
 
 #------------------------- Global State ---------------------------
@@ -44,14 +44,17 @@ class PackageIndex(object):
             return None
         return self.commands[cmd]
 
-    def handleIndex(self):
-        pass
+    def handleIndex(self, pkg, deps):
+        print "In handleIndex, returning dummy OK"
+        return "OK\n"
     
-    def handleRemove(self):
-        pass
+    def handleRemove(self, pkg, deps):
+        print "In handleRemove, returning dummy OK"
+        return "OK\n"
     
-    def handleQuery(self):
-        pass
+    def handleQuery(self, pkg, deps):
+        print "In handleQuery, returning dummy OK"
+        return "OK\n"
         
 
 class IndexCommand(object):
@@ -65,7 +68,7 @@ class IndexCommand(object):
         self.dependencies= dependencies
 
     def runCommand(self):
-        return self.handlerFunc(packageName, dependencies)
+        return self.handlerFunc(self.packageName, self.dependencies)
 
 
 class IndexThread(Thread):
@@ -93,6 +96,8 @@ class IndexThread(Thread):
                     print "Received malformed command from thr %d, exiting" % self.threadId
                     self.cltSock.send("ERROR\n")
                     break
+                result= cmdObj.runCommand()
+                self.cltSock.send(result)
                 #Done last to not count server work time in the session's duration (fairness)
                 self.updateSessionTimeout()
         except Exception as e:

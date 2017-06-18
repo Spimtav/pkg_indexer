@@ -8,8 +8,12 @@ from threading import Thread
 
 NUM_ARGS= 2
 MAX_PKT_BYTES= 1024
-RESP_ERR= "ERROR\n"
 MAX_TEST_DISPLAY_CHARS= 64
+MAX_SOCK_TIMEOUT_SECS= 4.0#60.0
+MAX_SESSION_SECS= 20.0#120.0
+
+RESP_ERR= "ERROR\n"
+RESP_OK= "OK\n"
 
 
 #----------------------- Testing Suite ---------------------------
@@ -60,35 +64,13 @@ def argsValid():
     return True
 
 
-def testBadCmds():
-    print "Testing bad commands..."
-    failTests= [
-        "x",
-        "no pipelines",
-        "onepipe|",
-        "INDEX|",
-        "INDEX|package",
-        "INDEX|package|",
-        "FAKE|package|\n",
-        "INDEX||\n",
-        "index|package|\n",
-        " INDEX|package|\n",
-        "INDEX|package|dep1|dep2\n",
-        "|package|deps\n",
-        "|package|\n",
-        "||\n",
-        "INDEX|package|derp" + ",derp"*1000 + "\n"
-    ]
-    results= runTests(failTests)
-    return results
-
-
-def runTests(tests):
+def runAPITests(tests):
     results= []
     cliThrs= []
     for i in range(len(tests)):
-        results.append(Result(tests[i]))
-        cliThrs.append(Client(ip, port, tests[i], RESP_ERR, results[i]))
+        (test, expected)= tests[i]
+        results.append(Result(test))
+        cliThrs.append(Client(ip, port, test, expected, results[i]))
         cliThrs[i].start()
     for thr in cliThrs:
         thr.join()
@@ -106,22 +88,88 @@ def runTests(tests):
     return (numPasses, len(tests))
 
 
+def testBadCmds():
+    print "\nTesting bad commands..."
+    failTests= [
+        "x",
+        "no pipelines",
+        "onepipe|",
+        "INDEX|",
+        "INDEX|package",
+        "INDEX|package|",
+        "FAKE|package|\n",
+        "INDEX||\n",
+        "index|package|\n",
+        " INDEX|package|\n",
+        "INDEX|package|dep1|dep2\n",
+        "|package|deps\n",
+        "|package|\n",
+        "||\n",
+        "INDEX|package|derp" + ",derp"*1000 + "\n"
+    ]
+    for pos in range(len(failTests)):
+        failTests[pos]= (failTests[pos], RESP_ERR)
+    results= runAPITests(failTests)
+    return results
+
+
+def testIndex():
+    print "Testing index commands..."
+    indexTests= [
+        ("INDEX|dummy|\n", RESP_OK)
+    ]
+    results= runAPITests(indexTests)
+    return results
+
+
+def testMaxSessionLen():
+    print "\nTesting session duration..."
+    timeInSession= 0.0
+    sleepDuration= MAX_SOCK_TIMEOUT_SECS - 0.5
+    try:
+        cliSock= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        cliSock.connect((ip, port))
+        while True:
+            cliSock.send("QUERY|package|\n")
+            time.sleep(sleepDuration)
+            timeInSession+= sleepDuration
+    except:
+        pass
+    try:
+        cliSock.shutdown(socket.SHUT_RDWR)
+        cliSock.close()
+    except:
+        pass
+    didPass= timeInSession >= MAX_SESSION_SECS
+    displayMsg= "FAIL"
+    if didPass:
+        displayMsg= "PASS"
+    displayTup= (displayMsg, timeInSession, MAX_SESSION_SECS)
+    print "    %s: %f secs in session of %f max secs" % displayTup
+    print "Passed %d/%d tests" % (didPass, 1)
+    return (didPass, 1)
+
+
 def main():
     global ip, port
     ip= sys.argv[1]
     port= int(sys.argv[2])
     testFuncs= [
-        testBadCmds
+        #testBadCmds,
+        #testMaxSessionLen
+        testIndex
     ]
     numPasses= 0
     numTests= 0
-    print "Running test suite:\n"
+    print "Running test suite:"
     for testFunc in testFuncs:
         results= testFunc()
         numPasses+= results[0]
         numTests+= results[1]
     print "\nAll tests concluded"
     print "Passed %d/%d tests in total" % (numPasses, numTests)
+
+
 
 if __name__ == "__main__":
     if argsValid():
