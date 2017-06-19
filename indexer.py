@@ -1,7 +1,8 @@
 #indexer.py
 """Package Indexer server code.
 Optional Args:
-  -debug - halts availability protections to make debugging easier."""
+  --debug          prints various debug stats, such as handler func elapsed time.
+  --useLocalhost   sets the server's bound IP to localhost."""
 
 import re
 import sys
@@ -11,10 +12,11 @@ from threading import Lock, Thread
 
 #-------------------------- Constants -----------------------------
 PORT_LISTEN= 8080
-MAX_QUEUED_CONNECTIONS= 5
-MAX_SOCK_TIMEOUT_SECS= 4.0#60.0
+MAX_QUEUED_CONNECTIONS= 100
+MAX_SOCK_TIMEOUT_SECS= 30.0
 MAX_PKT_BYTES= 1024
-MAX_SESSION_SECS= 12000.0 #TODO - tweak this
+MAX_SESSION_SECS= 300.0
+MAX_ERRORS= 100
 
 RESP_OK= "OK\n"
 RESP_FAIL= "FAIL\n"
@@ -38,6 +40,7 @@ class PackageIndex(object):
         }
         self.entries= {}
         self.lock= Lock()
+        self.cycleMemo= {}
 
     def __str__(self):
         """Returns: repr of the index as a str, for visual debugging."""
@@ -52,10 +55,6 @@ class PackageIndex(object):
                 s+= "\n            %s" % dependee.getName()
         return s
     
-    #TODO
-    #Have funcs to lock the state and unlock it as necessary
-    #Funcs to get a piece of data and block in the meantime
-
     def getLock(self):
         """Returns: this index's lock object, for concurrency control."""
         return self.lock
@@ -73,15 +72,20 @@ class PackageIndex(object):
            Precondition: root is an IndexEntry instance; visited is a map of
              IndexEntry->bool.
            Note: using DFS to find the cycle."""
-        #print "In hasCycle with root, path: (%s: %s)" % (root.getName(), str([i.getName() for i in visited]))
+        print "In hasCycle with root, path: (%s: %s)" % (root.getName(), str([i.getName() for i in visited]))
+        if root in self.cycleMemo:
+            return self.cycleMemo[root]
         if root in visited:
             return True
         visited[root]= True
+        cycleFound= False
         for child in root.dependees:
             foundCycle= self.hasCycle(child, dict(visited))
             if foundCycle:
-                return True
-        return False
+                cycleFound= True
+                break
+        self.cycleMemo[root]= cycleFound
+        return cycleFound
 
     def updateExisting(self, entryPtr, newDeps):
         """Attempts to update the index to reflect <newDeps> as <entryPtr>'s
@@ -113,7 +117,9 @@ class PackageIndex(object):
             dependees.pop(dependees.index(entryPtr))
         for dep in newDepPtrs:
             dep.getDependees().append(entryPtr)
-        if self.hasCycle(entryPtr, {}):
+        foundCycle= self.hasCycle(entryPtr, {})
+        self.cycleMemo= {}
+        if foundCycle:
             entryPtr.dependencies= oldDeps
             for dep in oldDeps:
                 dep.getDependees().append(entryPtr)
@@ -126,6 +132,9 @@ class PackageIndex(object):
         return RESP_OK
 
     def handleIndex(self, pkg, deps):
+        """Returns: RESP_OK if pkg was successfully added to or updated in the index;
+             RESP_FAIL otherwise.
+           Precondition: pkg is a str; deps is a list of str."""
         print "In handleIndex for (%s, %s)" % (pkg, str(deps))
         with self.lock:
             print "Checking if these dependencies exist: %s" % str(deps)
@@ -149,6 +158,9 @@ class PackageIndex(object):
             return RESP_OK
     
     def handleRemove(self, pkg, deps):
+        """Returns: RESP_OK if pkg isn't in the index or could be removed
+             successfully; RESP_FAIL otherwise.
+           Precondition: pkg is a str; deps is a list of str."""
         print "In handleRemove for (%s, %s), returning dummy OK" % (pkg, str(deps))
         with self.lock:
             print "Checking if package exists in index"
@@ -170,7 +182,8 @@ class PackageIndex(object):
             return RESP_OK
     
     def handleQuery(self, pkg, deps):
-        """Returns: RESP_OK if <pkg> has an entry in the index; RESP_FAIL otherwise."""
+        """Returns: RESP_OK if <pkg> has an entry in the index; RESP_FAIL otherwise.
+           Precondition: pkg is a str; deps is a list of str."""
         print "In handleQuery for (%s, %s)" % (pkg, str(deps))
         with self.lock:
             if pkg not in self.entries:
@@ -229,6 +242,7 @@ class IndexThread(Thread):
         self.indexPtr= indexPtr
         self.sessionSecsRemaining= MAX_SESSION_SECS
         self.lastActionTimestamp= time.time()
+        self.numFailures= 0
     
     def run(self):
         print "Starting new clt thread"
@@ -243,9 +257,13 @@ class IndexThread(Thread):
                 if cmdObj == None:
                     print "Received malformed command from thr %d, exiting" % self.threadId
                     self.cltSock.send(RESP_ERR)
+                    self.numFailures+= 1
                     continue
-                    #break #TODO - the autotest doesnt like this countermeasure, remove
+                start= time.time()
                 result= cmdObj.runCommand()
+                if isDebug:
+                    info= (cmd.split("|")[0], time.time()-start)
+                    print "Elapsed time for call %s: %f" % info
                 self.cltSock.send(result)
                 #Done last to not count server work time in the session's duration (fairness)
                 #print index
@@ -273,7 +291,11 @@ class IndexThread(Thread):
 
     def isSessionAlive(self):
         """Returns: True if the session has not expired; False otherwise."""
-        return self.sessionSecsRemaining > 0.0
+        failCons= [
+            self.sessionSecsRemaining <= 0.0,
+            self.numFailures > MAX_ERRORS
+        ]
+        return True in failCons
 
     def parseInput(self, s):
         """Returns: IndexCommand object if the command could be successfully
@@ -297,8 +319,7 @@ class IndexThread(Thread):
             return None
         #Parse dependency portion (optional)
         deps= deps.split(",")
-        if deps == [""]:
-            deps= []
+        deps= [dep for dep in deps if len(dep) > 0]
         deps= list(set(deps))
         #Completed command
         return IndexCommand(cmdHandlerPtr, pkg, deps)
@@ -314,6 +335,7 @@ def parseFlags():
     if "--localhost" in sys.argv:
         global useLocalhost
         useLocalhost= True
+
 
 
 def createSrvSocket():
