@@ -72,6 +72,7 @@ class PackageIndex(object):
            Precondition: root is an IndexEntry instance; visited is a map of
              IndexEntry->bool.
            Note: using DFS to find the cycle."""
+        print "In hasCycle with root, path: (%s: %s)" % (root.getName(), str([i.getName() for i in visited]))
         if root in visited:
             return True
         visited[root]= True
@@ -102,7 +103,7 @@ class PackageIndex(object):
             dependees.pop(dependees.index(entryPtr))
         for dep in newDepPtrs:
             dep.getDependees().append(entryPtr)
-        if hasCycle(entryPtr, []):
+        if self.hasCycle(entryPtr, {}):
             entryPtr.dependencies= oldDeps
             for dep in oldDeps:
                 dep.getDependees().append(entryPtr)

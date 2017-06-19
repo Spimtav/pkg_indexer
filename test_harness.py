@@ -93,7 +93,7 @@ def runAPITests(tests, canParallel=False, suppressTests=False, suppressSummary=F
     return (numPasses, len(tests))
 
 
-def cleanupIndex(tests):
+def cleanupIndex(tests, suppressOutput=False):
     delOrder= []
     for test in tests:
         if test[1] == RESP_OK and "INDEX" in test[0]:
@@ -107,7 +107,7 @@ def cleanupIndex(tests):
         cliThrs[i].start()
         cliThrs[i].join()
     for result in results:
-        if not result.passed:
+        if not result.passed and not suppressOutput:
             print "    ERROR: failed to remove testStr \"%s\"" % result.testStr
 
 
@@ -241,14 +241,30 @@ def testCycles():
         ("INDEX|A|A,B,C\n", RESP_FAIL),
         ("INDEX|A|B,C,A\n", RESP_FAIL),
         ("INDEX|D|A\n", RESP_OK),
-        ("INDEX|A|D\n", RESP_FAIL)
-        
-
-        #("INDEX|D|A,B,C\n", RESP_OK),
-        #("INDEX|E|D,A\n", RESP_OK),
+        ("INDEX|A|D\n", RESP_FAIL),
+        ("INDEX|E|B,C\n", RESP_OK),
+        ("INDEX|B|E\n", RESP_FAIL),
+        ("INDEX|C|E\n", RESP_FAIL),
+        ("INDEX|F|A,D\n", RESP_OK),
+        ("INDEX|A|F\n", RESP_FAIL),
+        ("INDEX|D|F\n", RESP_FAIL),
+        ("INDEX|G|D,E\n", RESP_OK),
+        ("INDEX|A|G\n", RESP_FAIL),
+        ("INDEX|D|G\n", RESP_FAIL),
+        ("INDEX|B|G\n", RESP_FAIL),
+        ("INDEX|C|G\n", RESP_FAIL),
+        ("INDEX|G|E\n", RESP_OK),
+        ("INDEX|A|G\n", RESP_OK),
+        ("INDEX|B|F\n", RESP_FAIL),
+        ("INDEX|C|F\n", RESP_FAIL),
+        ("INDEX|B|A\n", RESP_FAIL),
+        ("INDEX|G|F\n", RESP_FAIL),
+        ("INDEX|G|A\n", RESP_FAIL),
+        ("INDEX|E|F\n", RESP_FAIL),
+        ("INDEX|A|\n", RESP_OK)
     ]
     results= runAPITests(cycleTests)
-    cleanupIndex(cycleTests)
+    cleanupIndex(cycleTests, suppressOutput=True)
     return results
 
 
