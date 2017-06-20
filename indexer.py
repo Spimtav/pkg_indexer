@@ -1,7 +1,8 @@
 #indexer.py
 """Package Indexer server code.
+Usage: python indexer.py
 Optional Args:
-  --debug          prints various debug stats, such as handler func elapsed time.
+  --debug          prints various debug stats, such as the duration of each API call.
   --useLocalhost   sets the server's bound IP to localhost."""
 
 import re
@@ -11,12 +12,13 @@ import socket
 from threading import Lock, Thread
 
 #-------------------------- Constants -----------------------------
-PORT_LISTEN= 8080
-MAX_QUEUED_CONNECTIONS= 100
-MAX_SOCK_TIMEOUT_SECS= 30.0
-MAX_PKT_BYTES= 1024
-MAX_SESSION_SECS= 300.0
-MAX_ERRORS= 100
+PORT_LISTEN= 8080           #the TCP/IP port to bind to and wait for clients on
+MAX_QUEUED_CONNECTIONS= 100 #how many connection requests the server will queue before denying
+                            #NOTE: this must be >= the test script's concurrency value
+MAX_SOCK_TIMEOUT_SECS= 30.0 #if client doesn't respond for this many secs, socket closed
+MAX_PKT_BYTES= 1024         #max bytes read from a packet at once
+MAX_SESSION_SECS= 300.0     #max total time the server will stay connected to one client
+MAX_ERRORS= 100             #max bad requests server will tolerate b4 disconnecting
 
 RESP_OK= "OK\n"
 RESP_FAIL= "FAIL\n"
@@ -337,7 +339,6 @@ def parseFlags():
         useLocalhost= True
 
 
-
 def createSrvSocket():
     """Returns: server socket object that listens on port PORT_LISTEN and can
          spawn new client sockets upon connection."""
@@ -368,10 +369,6 @@ def main():
         cliThr.start()
         print "Thread spawned, back to listening..."
         threadNum+= 1
-    
-
-
-
 
 
 
