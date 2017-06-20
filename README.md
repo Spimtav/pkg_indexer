@@ -21,19 +21,21 @@ Optional arguments:
 
 Additionally, there are several constants that relate to networking security that are defined at the top of indexer.py, which may be modified as desired:
 
-* PORT_LISTEN:            the TCP/IP port to bind to and wait for clients on               
+* PORT_LISTEN: the TCP/IP port to bind to and wait for clients on.
 
-* MAX_QUEUED_CONNECTIONS: how many connection requests the server will queue before denying.
+* MAX_QUEUED_CONNECTIONS: how many connection requests the server will queue before denying new ones.
 
     * NOTE: this must be >= the DigitalOcean test script's concurrency value, or it will fail with an error that the server rejected the connection.
 
-* MAX_SOCK_TIMEOUT_SECS:  if client doesn't respond for this many secs, socket closed      
+* MAX_SOCK_TIMEOUT_SECS: if client doesn't respond for this many secs, the socket is closed.
 
-* MAX_PKT_BYTES:          max bytes read from a packet at once                             
+* MAX_PKT_BYTES: max bytes read from a packet at once.
 
-* MAX_SESSION_SECS:       max total time the server will stay connected to one client      
+* MAX_SESSION_SECS: max total time the server will stay connected to one client before disconnecting.
 
-* MAX_ERRORS:             max bad requests server will tolerate b4 disconnecting           
+* MAX_ERRORS: max bad requests server will tolerate before disconnecting.
+
+    * NOTE: may break the DigitalOcean testing harness if this value is low compared to the "unluckiness" value.
 
 ## Test Harness Usage
 
