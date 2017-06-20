@@ -1,5 +1,5 @@
-#indexer.py
-"""Package Indexer server code.
+#verbose_indexer.py
+"""Package Indexer server code, with a ton of debug prints left in.
 Usage: python indexer.py
 Optional Args:
   --debug          prints various debug stats, such as the duration of each API call.
@@ -74,6 +74,7 @@ class PackageIndex(object):
            Precondition: root is an IndexEntry instance; visited is a map of
              IndexEntry->bool.
            Note: using DFS to find the cycle."""
+        print "In hasCycle with root, path: (%s: %s)" % (root.getName(), str([i.getName() for i in visited]))
         if root in self.cycleMemo:
             return self.cycleMemo[root]
         if root in visited:
@@ -99,6 +100,7 @@ class PackageIndex(object):
         newDepPtrs= []
         for dep in newDeps:
             if dep == entryPtr.getName():
+                print "Failing early: found self-cycle"
                 return RESP_FAIL
             newDepPtrs.append(self.entries[dep])
         #Efficiency: only check NEW packages, because others are known good
@@ -126,6 +128,7 @@ class PackageIndex(object):
             for dep in newDepPtrs:
                 dependees= dep.getDependees()
                 dependees.pop(dependees.index(entryPtr))
+            print "FOUND A CYCLE, failing"
             return RESP_FAIL
         entryPtr.dependencies= newDepPtrs
         return RESP_OK
@@ -134,39 +137,56 @@ class PackageIndex(object):
         """Returns: RESP_OK if pkg was successfully added to or updated in the index;
              RESP_FAIL otherwise.
            Precondition: pkg is a str; deps is a list of str."""
+        print "In handleIndex for (%s, %s)" % (pkg, str(deps))
         with self.lock:
+            print "Checking if these dependencies exist: %s" % str(deps)
             depPtrs= []
             for dep in deps:
                 if dep not in self.entries:
+                    print "Fail: dependency '%s' not in index" % dep
                     return RESP_FAIL
                 depPtrs.append(self.entries[dep])
+            print "Checking if entry exists"
             if pkg in self.entries:
+                print "Entry exists, attempting to update dependencies"
                 return self.updateExisting(self.entries[pkg], deps)
+            print "Creating new index entry for %s" % pkg 
             newEntry= IndexEntry(pkg, depPtrs, [])
             self.entries[pkg]= newEntry
+            print "Updating dependencies to add %s as a dependee" % pkg
             for depPtr in depPtrs:
                 depPtr.getDependees().append(newEntry)
+            print "Added new entry, all done"
             return RESP_OK
     
     def handleRemove(self, pkg, deps):
         """Returns: RESP_OK if pkg isn't in the index or could be removed
              successfully; RESP_FAIL otherwise.
            Precondition: pkg is a str; deps is a list of str."""
+        print "In handleRemove for (%s, %s), returning dummy OK" % (pkg, str(deps))
         with self.lock:
+            print "Checking if package exists in index"
             if pkg not in self.entries:
+                print "No entry named '%s' found, returning OK" % pkg
                 return RESP_OK
+            print "Checking if any dependees on this pkg"
             entry= self.entries[pkg]
             if len(entry.getDependees()) > 0:
+                print "Failing: %s has these dependees: %s" % (pkg, str([i.getName() for i in entry.dependees]))
                 return RESP_FAIL
+            print "Removing %s as a dependee for its dependencies" % pkg
             for depPtr in entry.getDependencies():
                 dependees= depPtr.getDependees()
                 dependees.pop(dependees.index(entry))
+            print "Removing entry for package %s" % pkg
             del self.entries[pkg]
+            print "Removed all traces of %s, all done" % pkg
             return RESP_OK
     
     def handleQuery(self, pkg, deps):
         """Returns: RESP_OK if <pkg> has an entry in the index; RESP_FAIL otherwise.
            Precondition: pkg is a str; deps is a list of str."""
+        print "In handleQuery for (%s, %s)" % (pkg, str(deps))
         with self.lock:
             if pkg not in self.entries:
                 return RESP_FAIL
@@ -227,13 +247,17 @@ class IndexThread(Thread):
         self.numFailures= 0
     
     def run(self):
+        print "Starting new clt thread"
         try:
             while self.isSessionAlive():
                 cmd= self.cltSock.recv(MAX_PKT_BYTES)
                 if len(cmd) == 0:
+                    print "Caught EOF on client thread %d" % self.threadId
                     break
+                print "Received command: %s" % cmd
                 cmdObj= self.parseInput(cmd)
                 if cmdObj == None:
+                    print "Received malformed command from thr %d, exiting" % self.threadId
                     self.cltSock.send(RESP_ERR)
                     self.numFailures+= 1
                     continue
@@ -244,21 +268,28 @@ class IndexThread(Thread):
                     print "Elapsed time for call %s: %f ms" % info
                 self.cltSock.send(result)
                 #Done last to not count server work time in the session's duration (fairness)
+                #print index
                 self.updateSessionTimeout()
+                print "\n____________________\n"
         except Exception as e:
             errMsgTup= (e.__class__.__name__, self.threadId, e)
             print "Caught exception <%s> from client thread %d: %s" % errMsgTup
+        print "Shutting down client thread %d" % self.threadId
         try:
             self.cltSock.shutdown(socket.SHUT_RDWR)
             self.cltSock.close()
         except:
             pass
+        print "Ending client thread %d" % self.threadId
+        print "\n____________________\n"
 
     def updateSessionTimeout(self):
         """Reduces the remaining time in this client's session by subtracting
              the difference between the last action timestamp and now."""
+        print "About to reduce TTL of session"
         self.sessionSecsRemaining-= time.time() - self.lastActionTimestamp
         self.lastActionTimestamp= time.time()
+        print "%f secs remaining in session" % self.sessionSecsRemaining
 
     def isSessionAlive(self):
         """Returns: True if the session has not expired; False otherwise."""
@@ -274,6 +305,7 @@ class IndexThread(Thread):
         """Returns: IndexCommand object if the command could be successfully
              parsed; None otherwise.
            Precondition: s is a string."""
+        print "Attempting to parse input..."
         if not isinstance(s, str):
             return None
         if not re.match(".*\n", s):
@@ -321,6 +353,8 @@ def createSrvSocket():
 
 
 def main():
+    print "DEBUG STATE: %s" % (str(isDebug))
+    print "LOCALHOST STATE: %s" % (str(useLocalhost))
     print "Creating server socket..."
     srvSock= createSrvSocket()
     print "Created server socket on %s" % (str(srvSock.getsockname()))
@@ -329,10 +363,13 @@ def main():
     global index
     index= PackageIndex()
     while True:
+        print "Listening for connections..."
         (cliSock, addr)= srvSock.accept()
         cliSock.settimeout(MAX_SOCK_TIMEOUT_SECS)
+        print "Found new connection, launching handler thread"
         cliThr= IndexThread(threadNum, cliSock, index)
         cliThr.start()
+        print "Thread spawned, back to listening..."
         threadNum+= 1
 
 

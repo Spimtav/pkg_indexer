@@ -9,8 +9,8 @@ from threading import Thread
 NUM_ARGS= 2
 MAX_PKT_BYTES= 1024
 MAX_TEST_DISPLAY_CHARS= 64
-MAX_SOCK_TIMEOUT_SECS= 4.0#60.0
-MAX_SESSION_SECS= 20.0#120.0
+PING_FREQ_SECS= 2.0
+MAX_SESSION_SECS= 120.0
 
 RESP_OK= "OK\n"
 RESP_FAIL= "FAIL\n"
@@ -271,7 +271,7 @@ def testCycles():
 def testMaxSessionLen():
     print "\nTesting session duration..."
     timeInSession= 0.0
-    sleepDuration= MAX_SOCK_TIMEOUT_SECS - 0.5
+    sleepDuration= PING_FREQ_SECS
     try:
         cliSock= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cliSock.connect((ip, port))
@@ -305,8 +305,8 @@ def main():
         testIndex,
         testRemove,
         testQuery,
-        testCycles
-        #testMaxSessionLen
+        testCycles,
+        testMaxSessionLen
     ]
     numPasses= 0
     numTests= 0

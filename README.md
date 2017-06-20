@@ -4,7 +4,7 @@
 
 This code was designed and tested on python 2.7.10.  Both scripts in this repo depend on no external software or packages, and can be run as-is on any system running this version of python.
 
-## Usage
+## Server Usage
 
 ```
 python indexer.py
@@ -30,6 +30,16 @@ Additionally, there are several constants that relate to networking security tha
 * MAX_SESSION_SECS:       max total time the server will stay connected to one client      
 
 * MAX_ERRORS:             max bad requests server will tolerate b4 disconnecting           
+
+## Test Harness Usage
+
+```
+python test_harness.py <IP> <PORT>
+```
+
+This testing harness runs some lightweight API and security tests to ensure that the core specs are met.  The script was designed to be extremely modular, and adding new tests is simple: add lines to existing tests, or create a new function and add its handle to the orchestrator.  While not as thorough or heavy as the DigitalOcean harness, it targets particular API corner cases and still allows for quick feedback into any parts of the system that might be broken.  Additionally, given that the DO test harness exists and was heavyweight, I figured that it was the best use of my time to put more of my resources into the server rather than generating as many tests as possible.
+
+Note: the testing harness uses constants similar to the server.  If you update the server's constants, you should also update the corresponding ones in the test harness to ensure it works correctly.
 
 # Package Index Implementation
 
