@@ -302,11 +302,11 @@ def main():
     ip= sys.argv[1]
     port= int(sys.argv[2])
     testFuncs= [
-        testBadCmds#,
-        #testIndex,
-        #testRemove,
-        #testQuery,
-        #testCycles,
+        testBadCmds,
+        testIndex,
+        testRemove,
+        testQuery,
+        testCycles
         #testMaxSessionLen
     ]
     numPasses= 0
