@@ -1,8 +1,12 @@
 # Code Instructions
 
-## Dependencies 
+## Dependencies and Docker
+
+Runtime: Python 2.7
 
 This code was designed and tested on python 2.7.10.  Both scripts in this repo depend on no external software or packages, and can be run as-is on any system running this version of python.
+
+For convenience, I have also included a dockerfile which uses the latest Ubuntu image as a base, and installs the necessary version of python on top of it.  
 
 ## Server Usage
 
@@ -13,7 +17,7 @@ Optional arguments:
 
 * --debug: prints various debug stats, such as the duration of each API call.
 
-* --localhost: sets the server's bound IP to localhost.
+* --localhost: sets the server's bound IP to localhost instead of the default network IP.
 
 Additionally, there are several constants that relate to networking security that are defined at the top of indexer.py, which may be modified as desired:
 

@@ -36,6 +36,7 @@ class Client(Thread):
     def run(self):
         try:
             cliSock= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            cliSock.settimeout(1.0)
             cliSock.connect((self.ip, self.port))
             cliSock.send(self.msg)
             status= cliSock.recv(MAX_PKT_BYTES)
@@ -301,12 +302,12 @@ def main():
     ip= sys.argv[1]
     port= int(sys.argv[2])
     testFuncs= [
-        testBadCmds,
-        testIndex,
-        testRemove,
-        testQuery,
-        testCycles,
-        testMaxSessionLen
+        testBadCmds#,
+        #testIndex,
+        #testRemove,
+        #testQuery,
+        #testCycles,
+        #testMaxSessionLen
     ]
     numPasses= 0
     numTests= 0

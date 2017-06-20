@@ -2,8 +2,8 @@
 """Package Indexer server code.
 Usage: python indexer.py
 Optional Args:
-  --debug          prints various debug stats, such as the duration of each API call.
-  --useLocalhost   sets the server's bound IP to localhost."""
+  --debug       prints various debug stats, such as the duration of each API call.
+  --localhost   sets the server's bound IP to localhost instead of the default network IP."""
 
 import re
 import sys
@@ -18,7 +18,7 @@ MAX_QUEUED_CONNECTIONS= 100 #how many connection requests the server will queue 
 MAX_SOCK_TIMEOUT_SECS= 30.0 #if client doesn't respond for this many secs, socket closed
 MAX_PKT_BYTES= 1024         #max bytes read from a packet at once
 MAX_SESSION_SECS= 120.0     #max total time the server will stay connected to one client
-MAX_ERRORS= 100             #max bad requests server will tolerate b4 disconnecting
+MAX_ERRORS= 100000          #max bad requests server will tolerate b4 disconnecting
 
 RESP_OK= "OK\n"
 RESP_FAIL= "FAIL\n"
