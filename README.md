@@ -21,7 +21,7 @@ Additionally, there are several constants that relate to networking security tha
 
 * MAX_QUEUED_CONNECTIONS: how many connection requests the server will queue before denying.
 
-    * NOTE: this must be >= the test script's concurrency value, or the harness will fail with an error that the server rejected the connection.
+    * NOTE: this must be >= the DigitalOcean test script's concurrency value, or it will fail with an error that the server rejected the connection.
 
 * MAX_SOCK_TIMEOUT_SECS:  if client doesn't respond for this many secs, socket closed      
 
@@ -60,9 +60,9 @@ After seeing this relatively fast (for Python) speed, I decided to keep the orig
 # Design Future-proofing
 For this project, I tried to design the code to be as abstract as possible, so that adding new features would be as simple and minimally-invasive as possible.  In particular, I designed the pathway for handling parsed commands to be abstract with regards to each ClientThread.  When a client thread parses a command, it generates a command object that stores all information necessary to make a call on an index: the package name, the dependency list, and a pointer to the appropriate handler function for that index instance.  This makes three things easy: 
 
-1. Adding/subtracting/modifying index commands: just add/delete/change the handler function in the index class, and change the function that gets bound during parsing.
+1. Adding/subtracting/modifying index API commands: just add/delete/change the handler function in the index class, and change the function that gets bound during parsing.
 
-2. Support for alternative data models: consider that we want to modify the server to maintain one private index per client, instead of one global index that anyone can interact with.  With this design, this case is already handled by creating a new Index object, passing it to the client thread, and binding the command object to that index instance's handler function. 
+2. Support for alternative data models: consider that we want to modify the server to maintain one private index per client, instead of one global index that anyone can interact with.  With this design, this case is already handled by creating a new Index object and passing it to the client thread.  The command object will then automatically be bound to that new index's handler method.
 
 3. Support for alternative computation models: there are various reasons why we would want to not immediately run the handler function.  For example, we might want to aggregate and batch a bunch of calls at once, or reorder them for consistency, or log them somewhere and run meta-analysis, or any number of other reasons.  By generating an object that can be stored and immediately fired off when ready, we can easily add in these features without restructuring the code.
 
